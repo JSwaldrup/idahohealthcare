@@ -1,0 +1,23 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto;
+  position: relative;   /* ADD THIS */
+}
+
+#map {
+  height: 100vh;
+  width: 100vw;
+}
+
+#footer {
+  position: absolute;
+  bottom: 12px;
+  right: 14px;
+  font-size: 10px;
+  color: #333;
+  background: rgba(255,255,255,0.85);
+  padding: 4px 8px;
+  border-radius: 4px;
+  z-index: 1000;
+}
