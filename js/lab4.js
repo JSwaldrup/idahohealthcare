@@ -13,7 +13,7 @@ function addHoverBehavior(layer, baseStyle) {
 const map = L.map("map").setView([44.5, -114.5], 6);
 
 // --- Mapbox Studio style as raster tiles in Leaflet ---
-const MAPBOX_TOKEN = window.MAPBOX_TOKEN;
+const MAPBOX_TOKEN = "pk.eyJ1IjoianN3YWxkcnVwIiwiYSI6ImNtbGZoeXBmazAyNTczY29wazN6dnByMDMifQ.b-Mz0bka9Uw85H9hTMV1mg";
 if (!MAPBOX_TOKEN) console.error("MAPBOX_TOKEN missing. Did secrets.js load?");
 const MAPBOX_USERNAME = "jswaldrup";
 const MAPBOX_STYLE_ID = "cmm1i7pdy005j01ptfjou4x9d"; // paste YOUR style id
