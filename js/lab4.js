@@ -201,15 +201,15 @@ fetch("data/HSAsForPopups.geojson")
 
   onEachFeature: function (feature, layer) {
     const name = feature.properties.HSA_label || "Unknown";
-    const hospitals = feature.properties.hosp_cnt ?? "N/A";
-    
-    layer.bindPopup(`
-  <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;">
-    <div style="font-size: 20px; font-weight: 700; margin-bottom: 2px;">
+const popupText = feature.properties.popup_text || feature.properties.CONCATENATE_facility_line || "No facility details available.";
+
+layer.bindPopup(`
+  <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; max-width: 320px;">
+    <div style="font-size: 20px; font-weight: 700; margin-bottom: 6px;">
       ${name}
     </div>
-    <div style="font-size: 14px; opacity: 0.85;">
-      ${hospitals} hospital${hospitals === 1 ? "" : "s"}
+    <div style="font-size: 13px; line-height: 1.35;">
+      ${popupText}
     </div>
   </div>
 `);
