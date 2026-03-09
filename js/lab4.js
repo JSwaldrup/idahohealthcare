@@ -227,6 +227,102 @@ layer.bindPopup(`
 
   });     // ← CLOSE .then(data
 
+let under30Layer;
+let band30to60Layer;
+let band60to90Layer;
+let band90to120Layer;
+let band120to150Layer;
+let layerControl; 
+
+function refreshLayerControl() {
+  if (layerControl) {
+    map.removeControl(layerControl);
+  }
+
+  const overlayMaps = {};
+
+  if (hrrLayer) overlayMaps["HRR Regions"] = hrrLayer;
+  if (hsaLayer) overlayMaps["HSA Regions"] = hsaLayer;
+  if (under30Layer) overlayMaps["Under 30 min"] = under30Layer;
+  if (band30to60Layer) overlayMaps["30–60 min"] = band30to60Layer;
+  if (band60to90Layer) overlayMaps["60–90 min"] = band60to90Layer;
+  if (band90to120Layer) overlayMaps["90–120 min"] = band90to120Layer;
+  if (band120to150Layer) overlayMaps["120–150 min"] = band120to150Layer;
+
+  layerControl = L.control.layers(null, overlayMaps, {
+    collapsed: false
+  }).addTo(map);
+}
+
+fetch("data/under30band.geojson")
+  .then(res => res.json())
+  .then(data => {
+    under30Layer = L.geoJSON(data, {
+      style: {
+        color: "#1b5e20",
+        weight: 1,
+        fillColor: "#2e7d32",
+        fillOpacity: 0.55
+      }
+    });
+    refreshLayerControl();
+  });
+
+fetch("data/30to60band.geojson")
+  .then(res => res.json())
+  .then(data => {
+    band30to60Layer = L.geoJSON(data, {
+      style: {
+        color: "#bfa300",
+        weight: 1,
+        fillColor: "#f2d94e",
+        fillOpacity: 0.5
+      }
+    });
+    refreshLayerControl();
+  });
+
+fetch("data/60to90band.geojson")
+  .then(res => res.json())
+  .then(data => {
+    band60to90Layer = L.geoJSON(data, {
+      style: {
+        color: "#d97a1e",
+        weight: 1,
+        fillColor: "#f28c52",
+        fillOpacity: 0.5
+      }
+    });
+    refreshLayerControl();
+  });
+
+fetch("data/90to120band.geojson")
+  .then(res => res.json())
+  .then(data => {
+    band90to120Layer = L.geoJSON(data, {
+      style: {
+        color: "#a61c1c",
+        weight: 1,
+        fillColor: "#c62828",
+        fillOpacity: 0.5
+      }
+    });
+    refreshLayerControl();
+  });
+
+fetch("data/120to150band.geojson")
+  .then(res => res.json())
+  .then(data => {
+    band120to150Layer = L.geoJSON(data, {
+      style: {
+        color: "#7b1fa2",
+        weight: 1,
+        fillColor: "#b39ddb",
+        fillOpacity: 0.5
+      }
+    });
+    refreshLayerControl();
+  });
 // ---- Zoom-based switching ----
 const HSA_ZOOM = 7;
 
@@ -250,8 +346,15 @@ function updateLayers() {
     // labels: HRR labels OFF, city labels ON
     if (map.hasLayer(hrrLabelLayer)) map.removeLayer(hrrLabelLayer);
     if (!map.hasLayer(placeLabels)) placeLabels.addTo(map);
+    if (under30Layer && map.hasLayer(under30Layer) && zoom < HSA_ZOOM) map.removeLayer(under30Layer);
+    if (band30to60Layer && map.hasLayer(band30to60Layer) && zoom < HSA_ZOOM) map.removeLayer(band30to60Layer);
+    if (band60to90Layer && map.hasLayer(band60to90Layer) && zoom < HSA_ZOOM) map.removeLayer(band60to90Layer);
+    if (band90to120Layer && map.hasLayer(band90to120Layer) && zoom < HSA_ZOOM) map.removeLayer(band90to120Layer);
+    if (band120to150Layer && map.hasLayer(band120to150Layer) && zoom < HSA_ZOOM) map.removeLayer(band120to150Layer);
   }
 }
 
 map.on("zoomend", updateLayers);
+
 updateLayers(); // Initial layer setup based on starting zoom
+refreshLayerControl();
