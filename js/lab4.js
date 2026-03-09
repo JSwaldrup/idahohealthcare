@@ -184,7 +184,7 @@ updateLayers();     // run zoom logic after HRR loads
 
 // ---- HSA layer ----
 let hsaLayer;
-fetch("data/hsa.geojson")
+fetch("data/HSAsForPopups.geojson")
   .then(res => res.json())
   .then(data => {
     hsaLayer = L.geoJSON(data, {
