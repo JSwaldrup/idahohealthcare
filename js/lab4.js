@@ -227,12 +227,13 @@ layer.bindPopup(`
 
   });     // ← CLOSE .then(data
 
-let under30Layer;
-let band30to60Layer;
-let band60to90Layer;
-let band90to120Layer;
-let band120to150Layer;
-let layerControl; 
+let ZeroToThirtyLayer;
+let ThirtyTo60Layer;
+let SixtyToNinetyLayer;
+let NinetyToOneTwentyLayer;
+let OneTwentyToOneFiftyLayer;
+let HospitalsLayer;
+let layerControl;
 
 function refreshLayerControl() {
   if (layerControl) {
@@ -243,86 +244,117 @@ function refreshLayerControl() {
 
   if (hrrLayer) overlayMaps["HRR Regions"] = hrrLayer;
   if (hsaLayer) overlayMaps["HSA Regions"] = hsaLayer;
-  if (under30Layer) overlayMaps["Under 30 min"] = under30Layer;
-  if (band30to60Layer) overlayMaps["30–60 min"] = band30to60Layer;
-  if (band60to90Layer) overlayMaps["60–90 min"] = band60to90Layer;
-  if (band90to120Layer) overlayMaps["90–120 min"] = band90to120Layer;
-  if (band120to150Layer) overlayMaps["120–150 min"] = band120to150Layer;
+  if (ZeroToThirtyLayer) overlayMaps["0–30 min"] = ZeroToThirtyLayer;
+  if (ThirtyTo60Layer) overlayMaps["30–60 min"] = ThirtyTo60Layer;
+  if (SixtyToNinetyLayer) overlayMaps["60–90 min"] = SixtyToNinetyLayer;
+  if (NinetyToOneTwentyLayer) overlayMaps["90–120 min"] = NinetyToOneTwentyLayer;
+  if (OneTwentyToOneFiftyLayer) overlayMaps["120–150 min"] = OneTwentyToOneFiftyLayer;
+  if (HospitalsLayer) overlayMaps["Hospitals"] = HospitalsLayer;
 
   layerControl = L.control.layers(null, overlayMaps, {
     collapsed: false
   }).addTo(map);
 }
 
-fetch("data/under30band.geojson")
+fetch("data/ZeroToThirty.geojson")
   .then(res => res.json())
   .then(data => {
-    under30Layer = L.geoJSON(data, {
+    ZeroToThirtyLayer = L.geoJSON(data, {
       style: {
-        color: "#1b5e20",
-        weight: 1,
-        fillColor: "#2e7d32",
-        fillOpacity: 0.55
+        stroke: false,
+        fillColor: "#2F5C3C",
+        fillOpacity: 1.0
+      }
+    }).addTo(map);
+
+    refreshLayerControl();
+  });
+
+fetch("data/ThirtyTo60.geojson")
+  .then(res => res.json())
+  .then(data => {
+    ThirtyTo60Layer = L.geoJSON(data, {
+      style: {
+        stroke: false,
+        fillColor: "#FFDF5A",
+        fillOpacity: 1.0
+      }
+    }).addTo(map);
+
+    refreshLayerControl();
+  });
+
+fetch("data/SixtyToNinety.geojson")
+  .then(res => res.json())
+  .then(data => {
+    SixtyToNinetyLayer = L.geoJSON(data, {
+      style: {
+        stroke: false,
+        fillColor: "#F58B54",
+        fillOpacity: 1.0
+      }
+    }).addTo(map);
+
+    refreshLayerControl();
+  });
+
+fetch("data/NinetyToOneTwenty.geojson")
+  .then(res => res.json())
+  .then(data => {
+    NinetyToOneTwentyLayer = L.geoJSON(data, {
+      style: {
+        stroke: false,
+        fillColor: "#B82911",
+        fillOpacity: 1.0
+      }
+    }).addTo(map);
+
+    refreshLayerControl();
+  });
+
+fetch("data/OneTwentyToOneFifty.geojson")
+  .then(res => res.json())
+  .then(data => {
+    OneTwentyToOneFiftyLayer = L.geoJSON(data, {
+      style: {
+        stroke: false,
+        fillColor: "#B77FE5",
+        fillOpacity: 0.54
+      }
+    }).addTo(map);
+
+    refreshLayerControl();
+  });
+
+  function yesNo(value) {
+  return value == 1 ? "Yes" : "No";
+}
+
+  fetch("data/Hospitals.geojson")
+  .then(res => res.json())
+  .then(data => {
+    HospitalsLayer = L.geoJSON(data, {
+      pointToLayer: function(feature, latlng) {
+        return L.circleMarker(latlng, {
+          radius: 6,
+          color: "#000000",
+          weight: 1,
+          fillColor: "#ffffff",
+          fillOpacity: 1
+        });
+      },
+      onEachFeature: function(feature, layer) {
+        const props = feature.properties;
+        layer.bindPopup(`
+          <strong>${props.name || props.NAME || "Hospital"}</strong><br>
+          ${props.city || props.CITY || ""}
+        `);
       }
     });
     refreshLayerControl();
   });
 
-fetch("data/30to60band.geojson")
-  .then(res => res.json())
-  .then(data => {
-    band30to60Layer = L.geoJSON(data, {
-      style: {
-        color: "#bfa300",
-        weight: 1,
-        fillColor: "#f2d94e",
-        fillOpacity: 0.5
-      }
-    });
-    refreshLayerControl();
-  });
 
-fetch("data/60to90band.geojson")
-  .then(res => res.json())
-  .then(data => {
-    band60to90Layer = L.geoJSON(data, {
-      style: {
-        color: "#d97a1e",
-        weight: 1,
-        fillColor: "#f28c52",
-        fillOpacity: 0.5
-      }
-    });
-    refreshLayerControl();
-  });
-
-fetch("data/90to120band.geojson")
-  .then(res => res.json())
-  .then(data => {
-    band90to120Layer = L.geoJSON(data, {
-      style: {
-        color: "#a61c1c",
-        weight: 1,
-        fillColor: "#c62828",
-        fillOpacity: 0.5
-      }
-    });
-    refreshLayerControl();
-  });
-
-fetch("data/120to150band.geojson")
-  .then(res => res.json())
-  .then(data => {
-    band120to150Layer = L.geoJSON(data, {
-      style: {
-        color: "#7b1fa2",
-        weight: 1,
-        fillColor: "#b39ddb",
-        fillOpacity: 0.5
-      }
-    });
-    refreshLayerControl();
-  });
 // ---- Zoom-based switching ----
 const HSA_ZOOM = 7;
 
