@@ -1,0 +1,15 @@
+{
+"type": "FeatureCollection",
+"features": [
+{
+"type": "Feature",
+"properties": {
+"name": "North Pacific Ocean"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [-127.5, 45.5]
+}
+}
+]
+}
