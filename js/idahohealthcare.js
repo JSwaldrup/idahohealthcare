@@ -1,4 +1,10 @@
-console.log("lab4 loaded");
+/* =========================================================
+Idaho Healthcare Access Map
+Drivetime Trade Areas + Functional Healthcare Regions around regional hospitals.
+Jon Waldrup
+========================================================= */
+
+console.log("idahohealthcare loaded");
 
 function addHoverBehavior(layer, baseStyle) {
   layer.on("mouseover", function () {
@@ -10,7 +16,36 @@ function addHoverBehavior(layer, baseStyle) {
     layer.setStyle(baseStyle);
   });
 }
-const map = L.map("map").setView([44.5, -114.5], 6);
+
+/* =======================
+   GLOBAL DATA STORAGE
+============================ */
+
+let hrrDataGlobal = null;
+let hsaDataGlobal = null;
+
+let zeroToThirtyData = null;
+let thirtyToSixtyData = null;
+let sixtyToNinetyData = null;
+let ninetyToOneTwentyData = null;
+let oneTwentyToOneFiftyData = null;
+
+/* ===============================
+   MAP SETUP
+================================ */
+
+// Extent layer bounds from ArcGIS Pro (Web Mercator meters)
+const rasterBounds = L.latLngBounds(
+  [42.0, -118.5],
+  [49.0, -108.5]
+);
+
+const map = L.map("map", {
+  minZoom: 6,
+  maxZoom: 12
+});
+
+map.fitBounds(rasterBounds.pad(0.22));
 
 // --- Mapbox Studio style as raster tiles in Leaflet ---
 const MAPBOX_TOKEN = "pk.eyJ1IjoianN3YWxkcnVwIiwiYSI6ImNtbGZoeXBmazAyNTczY29wazN6dnByMDMifQ.b-Mz0bka9Uw85H9hTMV1mg";
@@ -55,7 +90,7 @@ map.fitBounds(studyBounds);
 
 // ---- Title + Description ----
 const titleControl = L.control({ position: "topright" });
-
+/*
 titleControl.onAdd = function () {
   const div = L.DomUtil.create("div", "map-title");
   div.innerHTML = `
@@ -109,33 +144,40 @@ titleControl.onAdd = function () {
 };
 
 titleControl.addTo(map);
+*/
 
+/*
 // ---- Load Idaho boundary ----
 fetch("data/idaho.geojson")
   .then(res => res.json())
   .then(data => {
-    L.geoJSON(data, {
+    idahoBoundaryLayer = L.geoJSON(data, {
       style: {
         color: "#333",
         weight: 2,
         fillOpacity: 0
       }
     }).addTo(map);
-  });
 
+    idahoBoundaryLayer.bringToFront();
+  });
+  */
+ 
 // ---- HRR layer ----
 let hrrLayer;
 fetch("data/hrr.geojson")
   .then(res => res.json())
   .then(data => {
+    hrrDataGlobal = data;
 
   // define style once so hover can revert properly
-  const hrrStyle = {
-    color: "#444",
-    weight: 2,
-    fillColor: "#6baed6",
-    fillOpacity: 0.22
-  };
+ const hrrStyle = {
+  color: "#000000",
+  weight: 0.2,
+  opacity: 0.9,
+  fillColor: "#000000",
+  fillOpacity: 0.02
+};
 
   hrrLayer = L.geoJSON(data, {
     style: hrrStyle,
@@ -188,45 +230,44 @@ let hsaLayer;
 fetch("data/HSAsForPopups.geojson")
   .then(res => res.json())
   .then(data => {
-    hsaLayer = L.geoJSON(data, {
-  // define style 
-  style: (function () {
+    hsaDataGlobal = data;
     const hsaStyle = {
-      color: "#666",
-      weight: 1,
-      fillColor: "#31a354",
-      fillOpacity: 0.25
+      color: "#000000",
+      weight: 0.1,
+      opacity: 0.9,
+      fillColor: "#f4b6c2",
+      fillOpacity: 0.01
     };
-    return function () { return hsaStyle; };
-  })(),
 
-  onEachFeature: function (feature, layer) {
-    const name = feature.properties.HSA_label || "Unknown";
-const popupText = feature.properties.popup_text || feature.properties.CONCATENATE_facility_line || "No facility details available.";
+    hsaLayer = L.geoJSON(data, {
+      style: function () {
+        return hsaStyle;
+      },
 
-layer.bindPopup(`
-  <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; max-width: 320px;">
-    <div style="font-size: 20px; font-weight: 700; margin-bottom: 6px;">
-      ${name}
-    </div>
-    <div style="font-size: 13px; line-height: 1.35;">
-      ${popupText}
-    </div>
-  </div>
-`);
+    onEachFeature: function (feature, layer) {
+      const name = feature.properties.HSA_label || "Unknown";
+      const popupText =
+        feature.properties.popup_text ||
+        feature.properties.CONCATENATE_facility_line ||
+        "No details available";
 
-    // match above style on mouseout
-    addHoverBehavior(layer, {
-      color: "#666",
-      weight: 1,
-      fillColor: "#31a354",
-          fillOpacity: 0.25
-        });
-      }
+      layer.bindPopup(`
+        <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; max-width: 320px;">
+          <div style="font-size: 20px; font-weight: 700; margin-bottom: 6px;">
+            ${name}
+          </div>
+          <div style="font-size: 13px; line-height: 1.35;">
+            ${popupText}
+          </div>
+        </div>
+      `);
 
-    });   // ← CLOSE L.geoJSON
+      addHoverBehavior(layer, hsaStyle);
+    }
+  });
 
-  });     // ← CLOSE .then(data
+  updateLayers();
+});
 
 let ZeroToThirtyLayer;
 let ThirtyTo60Layer;
@@ -245,11 +286,6 @@ function refreshLayerControl() {
 
   if (hrrLayer) overlayMaps["HRR Regions"] = hrrLayer;
   if (hsaLayer) overlayMaps["HSA Regions"] = hsaLayer;
-  if (ZeroToThirtyLayer) overlayMaps["0–30 min"] = ZeroToThirtyLayer;
-  if (ThirtyTo60Layer) overlayMaps["30–60 min"] = ThirtyTo60Layer;
-  if (SixtyToNinetyLayer) overlayMaps["60–90 min"] = SixtyToNinetyLayer;
-  if (NinetyToOneTwentyLayer) overlayMaps["90–120 min"] = NinetyToOneTwentyLayer;
-  if (OneTwentyToOneFiftyLayer) overlayMaps["120–150 min"] = OneTwentyToOneFiftyLayer;
   if (HospitalsLayer) overlayMaps["Hospitals"] = HospitalsLayer;
 
   layerControl = L.control.layers(null, overlayMaps, {
@@ -257,15 +293,18 @@ function refreshLayerControl() {
   }).addTo(map);
 }
 
+const hiddenDriveStyle = {
+  stroke: false,
+  fillOpacity: 0
+};
+
 fetch("data/ZeroToThirty.geojson")
   .then(res => res.json())
   .then(data => {
+    zeroToThirtyData = data;
     ZeroToThirtyLayer = L.geoJSON(data, {
-      style: {
-        stroke: false,
-        fillColor: "#2F5C3C",
-        fillOpacity: 1.0
-      }
+      style: styleZeroToThirty,
+      interactive: false
     }).addTo(map);
 
     refreshLayerControl();
@@ -274,12 +313,10 @@ fetch("data/ZeroToThirty.geojson")
 fetch("data/ThirtyTo60.geojson")
   .then(res => res.json())
   .then(data => {
+    thirtyToSixtyData = data;
     ThirtyTo60Layer = L.geoJSON(data, {
-      style: {
-        stroke: false,
-        fillColor: "#FFDF5A",
-        fillOpacity: 1.0
-      }
+      style: styleThirtyTo60,
+      interactive: false
     }).addTo(map);
 
     refreshLayerControl();
@@ -288,12 +325,10 @@ fetch("data/ThirtyTo60.geojson")
 fetch("data/SixtyToNinety.geojson")
   .then(res => res.json())
   .then(data => {
+    sixtyToNinetyData = data;
     SixtyToNinetyLayer = L.geoJSON(data, {
-      style: {
-        stroke: false,
-        fillColor: "#F58B54",
-        fillOpacity: 1.0
-      }
+      style: styleSixtyToNinety,
+      interactive: false
     }).addTo(map);
 
     refreshLayerControl();
@@ -302,12 +337,10 @@ fetch("data/SixtyToNinety.geojson")
 fetch("data/NinetyToOneTwenty.geojson")
   .then(res => res.json())
   .then(data => {
+    ninetyToOneTwentyData = data;
     NinetyToOneTwentyLayer = L.geoJSON(data, {
-      style: {
-        stroke: false,
-        fillColor: "#B82911",
-        fillOpacity: 1.0
-      }
+      style: styleNinetyToOneTwenty,
+      interactive: false
     }).addTo(map);
 
     refreshLayerControl();
@@ -316,18 +349,16 @@ fetch("data/NinetyToOneTwenty.geojson")
 fetch("data/OneTwentyToOneFifty.geojson")
   .then(res => res.json())
   .then(data => {
+    oneTwentyToOneFiftyData = data;
     OneTwentyToOneFiftyLayer = L.geoJSON(data, {
-      style: {
-        stroke: false,
-        fillColor: "#B77FE5",
-        fillOpacity: 0.54
-      }
+      style: styleOneTwentyToOneFifty,
+      interactive: false
     }).addTo(map);
 
     refreshLayerControl();
   });
 
-  function yesNo(value) {
+function yesNo(value) {
   return value == 1 ? "Yes" : "No";
 }
 
@@ -355,39 +386,133 @@ fetch("data/OneTwentyToOneFifty.geojson")
     refreshLayerControl();
   });
 
+// add helper functions
+function findContainingFeature(featureCollection, lng, lat) {
+  if (!featureCollection || !featureCollection.features) return null;
 
-// ---- Zoom-based switching ----
-const HSA_ZOOM = 7;
+  const pt = turf.point([lng, lat]);
 
-function updateLayers() {
-  const zoom = map.getZoom();
-
-  if (zoom < HSA_ZOOM) {
-    // HRR mode
-    if (hsaLayer && map.hasLayer(hsaLayer)) map.removeLayer(hsaLayer);
-    if (hrrLayer && map.hasLayer(hrrLayer)) map.addLayer(hrrLayer);
-
-    // labels: HRR labels ON, city labels OFF
-    if (map.hasLayer(placeLabels)) map.removeLayer(placeLabels);
-    if (!map.hasLayer(hrrLabelLayer)) hrrLabelLayer.addTo(map);
-
-  } else {
-    // HSA mode
-    if (hrrLayer && map.hasLayer(hrrLayer)) map.removeLayer(hrrLayer);
-    if (hsaLayer && !map.hasLayer(hsaLayer)) map.addLayer(hsaLayer);
-
-    // labels: HRR labels OFF, city labels ON
-    if (map.hasLayer(hrrLabelLayer)) map.removeLayer(hrrLabelLayer);
-    if (!map.hasLayer(placeLabels)) placeLabels.addTo(map);
-    if (under30Layer && map.hasLayer(under30Layer) && zoom < HSA_ZOOM) map.removeLayer(under30Layer);
-    if (band30to60Layer && map.hasLayer(band30to60Layer) && zoom < HSA_ZOOM) map.removeLayer(band30to60Layer);
-    if (band60to90Layer && map.hasLayer(band60to90Layer) && zoom < HSA_ZOOM) map.removeLayer(band60to90Layer);
-    if (band90to120Layer && map.hasLayer(band90to120Layer) && zoom < HSA_ZOOM) map.removeLayer(band90to120Layer);
-    if (band120to150Layer && map.hasLayer(band120to150Layer) && zoom < HSA_ZOOM) map.removeLayer(band120to150Layer);
+  for (const feature of featureCollection.features) {
+    if (turf.booleanPointInPolygon(pt, feature)) {
+      return feature;
+    }
   }
+
+  return null;
 }
 
-map.on("zoomend", updateLayers);
+function getDriveOpacity() {
+  const z = map.getZoom();
 
-updateLayers(); // Initial layer setup based on starting zoom
+  if (z <= 7) return 1.0;
+  if (z === 8) return 0.65;
+  if (z === 9) return 0.25;
+  return 0.0;
+}
+
+function styleZeroToThirty() {
+  return {
+    stroke: false,
+    fillColor: "#2F5C3C",
+    fillOpacity: getDriveOpacity()
+  };
+}
+
+function styleThirtyTo60() {
+  return {
+    stroke: false,
+    fillColor: "#FFDF5A",
+    fillOpacity: getDriveOpacity()
+  };
+}
+
+function styleSixtyToNinety() {
+  return {
+    stroke: false,
+    fillColor: "#F58B54",
+    fillOpacity: getDriveOpacity()
+  };
+}
+
+function styleNinetyToOneTwenty() {
+  return {
+    stroke: false,
+    fillColor: "#B82911",
+    fillOpacity: getDriveOpacity()
+  };
+}
+
+function styleOneTwentyToOneFifty() {
+  return {
+    stroke: false,
+    fillColor: "#B77FE5",
+    fillOpacity: getDriveOpacity() * 0.54
+  };
+}
+
+function updateDriveLayers() {
+  if (ZeroToThirtyLayer) ZeroToThirtyLayer.setStyle(styleZeroToThirty());
+  if (ThirtyTo60Layer) ThirtyTo60Layer.setStyle(styleThirtyTo60());
+  if (SixtyToNinetyLayer) SixtyToNinetyLayer.setStyle(styleSixtyToNinety());
+  if (NinetyToOneTwentyLayer) NinetyToOneTwentyLayer.setStyle(styleNinetyToOneTwenty());
+  if (OneTwentyToOneFiftyLayer) OneTwentyToOneFiftyLayer.setStyle(styleOneTwentyToOneFifty());
+}
+
+function getDriveTimeLabel(lng, lat) {
+  if (findContainingFeature(zeroToThirtyData, lng, lat)) return "0–30 min";
+  if (findContainingFeature(thirtyToSixtyData, lng, lat)) return "30–60 min";
+  if (findContainingFeature(sixtyToNinetyData, lng, lat)) return "60–90 min";
+  if (findContainingFeature(ninetyToOneTwentyData, lng, lat)) return "90–120 min";
+  if (findContainingFeature(oneTwentyToOneFiftyData, lng, lat)) return "120–150 min";
+  return "Outside mapped drivetime bands";
+}
+
+// ---- Zoom-based switching ----
+function updateLayers() {
+  if (!map.hasLayer(placeLabels)) placeLabels.addTo(map);
+  if (map.hasLayer(hrrLabelLayer)) map.removeLayer(hrrLabelLayer);
+}
+
+map.on("zoomend", function () {
+  updateLayers();
+  updateDriveLayers();
+  if (idahoBoundaryLayer) idahoBoundaryLayer.bringToFront();
+});
+
+const IDENTIFY_MIN_ZOOM = 7;
+
+// Map click handler
+map.on("click", function (e) {
+  const lng = e.latlng.lng;
+  const lat = e.latlng.lat;
+
+  const hrrFeature = findContainingFeature(hrrDataGlobal, lng, lat);
+  const hsaFeature = findContainingFeature(hsaDataGlobal, lng, lat);
+  const driveTimeLabel = getDriveTimeLabel(lng, lat);
+
+  const hrrName = hrrFeature
+    ? (hrrFeature.properties.HRR_lbl || hrrFeature.properties.HRR_label || "HRR found")
+    : "None";
+
+  const hsaName = hsaFeature
+    ? (hsaFeature.properties.HSA_label || "HSA found")
+    : "None";
+
+  const panel = document.getElementById("info-panel");
+
+panel.innerHTML = `
+  <div class="panel-block">
+    <strong style="font-size:14px; display:block; margin-bottom:6px; letter-spacing:0.3px;">
+      Map summary
+  </strong>
+    <strong>HRR:</strong> ${hrrName}<br>
+    <strong>HSA:</strong> ${hsaName}<br>
+    <strong>Drivetime:</strong> ${driveTimeLabel || "None"}<br>
+    <strong>Coordinates:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}
+  </div>
+`;
+});
+
+updateLayers();
+updateDriveLayers();
 refreshLayerControl();
