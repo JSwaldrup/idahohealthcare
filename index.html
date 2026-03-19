@@ -144,16 +144,67 @@
       white-space: nowrap;
       font-weight: 500;
     }
+
+    #dt-legend {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1100;
+  background: rgba(12, 16, 28, 0.85);
+  color: #e8eefc;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+.legend-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.box {
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border-radius: 3px;
+}
+
+.box-0 { background: #2F5C3C; }
+.box-1 { background: #F4D35E; }
+.box-2 { background: #EE964B; }
+.box-3 { background: #D1495B; }
+.box-4 { background: #C8A2FF; }
+
   </style>
 </head>
 
 <body>
 
-  <div id="map"></div>
+<div id="map"></div>
+
 <button id="open-panel-btn">
   Explore Idaho Healthcare<br>
   <span class="cta-sub">Click here to start</span>
 </button>
+
+<!-- Legend -->
+<div id="dt-legend">
+  <div class="legend-title">Drive Time (minutes)</div>
+  <div class="legend-item"><span class="box box-0"></span> 0-30</div>
+  <div class="legend-item"><span class="box box-1"></span> 30-60</div>
+  <div class="legend-item"><span class="box box-2"></span> 60-90</div>
+  <div class="legend-item"><span class="box box-3"></span> 90-120</div>
+  <div class="legend-item"><span class="box box-4"></span> 120-150</div>
+</div>
 
 <div id="info-panel">
     <button id="close-panel-btn" type="button">&times;</button>
