@@ -30,6 +30,15 @@ let sixtyToNinetyData = null;
 let ninetyToOneTwentyData = null;
 let oneTwentyToOneFiftyData = null;
 
+let idahoBoundaryLayer = null;
+
+let searchMarker = null;
+let nearestLine = null;
+let nearestLineHalo = null;
+let distanceLabel = null;
+let hospitalMarker = null;
+let hospitalLabel = null;
+
 /* ===============================
    MAP SETUP
 ================================ */
@@ -49,12 +58,12 @@ map.fitBounds(rasterBounds.pad(0.22));
 
 // --- Mapbox Studio style as raster tiles in Leaflet ---
 const MAPBOX_TOKEN = "pk.eyJ1IjoianN3YWxkcnVwIiwiYSI6ImNtbGZoeXBmazAyNTczY29wazN6dnByMDMifQ.b-Mz0bka9Uw85H9hTMV1mg";
-
 const MAPBOX_USERNAME = "jswaldrup";
-const MAPBOX_STYLE_ID = "cmmoca1zh003x01rn6yrq472o";
+const MAPBOX_STYLE_ID = "cmmocalzh003x01rn6yrq472o";
+const DT_TILE_ZOOM = 10; // zoom level at which to switch from vector to raster drivetime layers (if using Mapbox raster tiles for drivetime)
 
 const mapboxBasemap = L.tileLayer(
-  `https://api.mapbox.com/styles/v1/${MAPBOX_USERNAME}/${MAPBOX_STYLE_ID}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+  `https://api.mapbox.com/styles/v1/${MAPBOX_USERNAME}/${MAPBOX_STYLE_ID}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
   {
     tileSize: 512,
     zoomOffset: -1,
@@ -162,7 +171,7 @@ fetch("data/idaho.geojson")
     idahoBoundaryLayer.bringToFront();
   });
   */
- 
+
 // ---- HRR layer ----
 let hrrLayer;
 fetch("data/hrr.geojson")
@@ -170,43 +179,43 @@ fetch("data/hrr.geojson")
   .then(data => {
     hrrDataGlobal = data;
 
-  // define style once so hover can revert properly
- const hrrStyle = {
-  color: "#000000",
-  weight: 0.2,
-  opacity: 0.9,
-  fillColor: "#000000",
-  fillOpacity: 0.02
-};
+    // define style once so hover can revert properly
+    const hrrStyle = {
+      color: "#000000",
+      weight: 0.2,
+      opacity: 0.9,
+      fillColor: "#000000",
+      fillOpacity: 0.02
+    };
 
-  hrrLayer = L.geoJSON(data, {
-    style: hrrStyle,
-    onEachFeature: function (feature, layer) {
+    hrrLayer = L.geoJSON(data, {
+      style: hrrStyle,
+      onEachFeature: function (feature, layer) {
 
-      const name = feature.properties.HRR_lbl || "Unknown";
+        const name = feature.properties.HRR_lbl || "Unknown";
 
-// --- HRR label at polygon centroid ---
-const c = layer.getBounds().getCenter();
-L.marker(c, {
-  interactive: false,
-  icon: L.divIcon({
-    className: "hrr-label",
-    html: `<div>${name}</div>`
-  })
-}).addTo(hrrLabelLayer);
+        // --- HRR label at polygon centroid ---
+        const c = layer.getBounds().getCenter();
+        L.marker(c, {
+          interactive: false,
+          icon: L.divIcon({
+            className: "hrr-label",
+            html: `<div>${name}</div>`
+          })
+        }).addTo(hrrLabelLayer);
 
-const totPop = feature.properties.populationtotals_TOTPOP_CY ?? "N/A";
-const popDens = feature.properties.populationtotals_POPDENS_CY ?? "N/A";
+        const totPop = feature.properties.populationtotals_TOTPOP_CY ?? "N/A";
+        const popDens = feature.properties.populationtotals_POPDENS_CY ?? "N/A";
 
-const totPopFmt =
-  totPop === "N/A" ? totPop : Number(totPop).toLocaleString();
+        const totPopFmt =
+          totPop === "N/A" ? totPop : Number(totPop).toLocaleString();
 
-const popDensFmt =
-  popDens === "N/A"
-    ? popDens
-    : Number(popDens).toLocaleString(undefined, { maximumFractionDigits: 1 });
+        const popDensFmt =
+          popDens === "N/A"
+            ? popDens
+            : Number(popDens).toLocaleString(undefined, { maximumFractionDigits: 1 });
 
-layer.bindPopup(`
+        layer.bindPopup(`
   <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;">
     <div style="font-size:18px; font-weight:700; margin-bottom:2px;">
       ${name}
@@ -218,12 +227,12 @@ layer.bindPopup(`
   </div>
 `);
 
-addHoverBehavior(layer, hrrStyle);
-}   // end onEachFeature
-}); // end L.geoJSON
+        addHoverBehavior(layer, hrrStyle);
+      }   // end onEachFeature
+    }); // end L.geoJSON
 
-updateLayers();     // run zoom logic after HRR loads
-});                 // end fetch
+    updateLayers();     // run zoom logic after HRR loads
+  });                 // end fetch
 
 // ---- HSA layer ----
 let hsaLayer;
@@ -244,14 +253,14 @@ fetch("data/HSAsForPopups.geojson")
         return hsaStyle;
       },
 
-    onEachFeature: function (feature, layer) {
-      const name = feature.properties.HSA_label || "Unknown";
-      const popupText =
-        feature.properties.popup_text ||
-        feature.properties.CONCATENATE_facility_line ||
-        "No details available";
+      onEachFeature: function (feature, layer) {
+        const name = feature.properties.HSA_label || "Unknown";
+        const popupText =
+          feature.properties.popup_text ||
+          feature.properties.CONCATENATE_facility_line ||
+          "No details available";
 
-      layer.bindPopup(`
+        layer.bindPopup(`
         <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; max-width: 320px;">
           <div style="font-size: 20px; font-weight: 700; margin-bottom: 6px;">
             ${name}
@@ -262,12 +271,12 @@ fetch("data/HSAsForPopups.geojson")
         </div>
       `);
 
-      addHoverBehavior(layer, hsaStyle);
-    }
-  });
+        addHoverBehavior(layer, hsaStyle);
+      }
+    });
 
-  updateLayers();
-});
+    updateLayers();
+  });
 
 let ZeroToThirtyLayer;
 let ThirtyTo60Layer;
@@ -362,11 +371,11 @@ function yesNo(value) {
   return value == 1 ? "Yes" : "No";
 }
 
-  fetch("data/Hospitals.geojson")
+fetch("data/Hospitals.geojson")
   .then(res => res.json())
   .then(data => {
     HospitalsLayer = L.geoJSON(data, {
-      pointToLayer: function(feature, latlng) {
+      pointToLayer: function (feature, latlng) {
         return L.circleMarker(latlng, {
           radius: 6,
           color: "#000000",
@@ -375,7 +384,7 @@ function yesNo(value) {
           fillOpacity: 1
         });
       },
-      onEachFeature: function(feature, layer) {
+      onEachFeature: function (feature, layer) {
         const props = feature.properties;
         layer.bindPopup(`
           <strong>${props.name || props.NAME || "Hospital"}</strong><br>
@@ -451,11 +460,28 @@ function styleOneTwentyToOneFifty() {
 }
 
 function updateDriveLayers() {
-  if (ZeroToThirtyLayer) ZeroToThirtyLayer.setStyle(styleZeroToThirty());
-  if (ThirtyTo60Layer) ThirtyTo60Layer.setStyle(styleThirtyTo60());
-  if (SixtyToNinetyLayer) SixtyToNinetyLayer.setStyle(styleSixtyToNinety());
-  if (NinetyToOneTwentyLayer) NinetyToOneTwentyLayer.setStyle(styleNinetyToOneTwenty());
-  if (OneTwentyToOneFiftyLayer) OneTwentyToOneFiftyLayer.setStyle(styleOneTwentyToOneFifty());
+  const zoom = map.getZoom();
+  const showVectors = zoom < DT_TILE_ZOOM;
+
+  if (ZeroToThirtyLayer) {
+    ZeroToThirtyLayer.setStyle(showVectors ? styleZeroToThirty() : hiddenDriveStyle);
+  }
+
+  if (ThirtyTo60Layer) {
+    ThirtyTo60Layer.setStyle(showVectors ? styleThirtyTo60() : hiddenDriveStyle);
+  }
+
+  if (SixtyToNinetyLayer) {
+    SixtyToNinetyLayer.setStyle(showVectors ? styleSixtyToNinety() : hiddenDriveStyle);
+  }
+
+  if (NinetyToOneTwentyLayer) {
+    NinetyToOneTwentyLayer.setStyle(showVectors ? styleNinetyToOneTwenty() : hiddenDriveStyle);
+  }
+
+  if (OneTwentyToOneFiftyLayer) {
+    OneTwentyToOneFiftyLayer.setStyle(showVectors ? styleOneTwentyToOneFifty() : hiddenDriveStyle);
+  }
 }
 
 function getDriveTimeLabel(lng, lat) {
@@ -500,7 +526,7 @@ map.on("click", function (e) {
 
   const panel = document.getElementById("info-panel");
 
-panel.innerHTML = `
+  panel.innerHTML = `
   <div class="panel-block">
     <strong style="font-size:14px; display:block; margin-bottom:6px; letter-spacing:0.3px;">
       Map summary
@@ -516,3 +542,188 @@ panel.innerHTML = `
 updateLayers();
 updateDriveLayers();
 refreshLayerControl();
+
+// ================================
+// ADDRESS SEARCH (STEP 1)
+// ================================
+
+document.getElementById("search-btn").addEventListener("click", function () {
+
+  const address = document.getElementById("address-input").value;
+  const infoPanel = document.getElementById("info-panel");
+
+  if (!address) {
+    alert("Enter an Idaho address");
+    return;
+  }
+
+  // Geocoding with Mapbox API, limited to Idaho + nearby areas
+  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${MAPBOX_TOKEN}&bbox=-117.243027,41.988057,-111.043564,49.001146&country=US&types=address,place,postcode,locality,neighborhood`;
+  fetch(url)
+    .then(response => response.json())
+    .then(data => {
+
+      if (!data.features || data.features.length === 0) {
+        alert("Address not found in Idaho");
+        return;
+      }
+
+      const result = data.features[0];
+      const lon = result.center[0];
+      const lat = result.center[1];
+
+      // remove previous marker
+      if (searchMarker) {
+        map.removeLayer(searchMarker);
+      }
+
+      // add marker
+      searchMarker = L.marker([lat, lon]).addTo(map);
+      console.log("STEP 2 REACHED");
+
+      // ================================
+      // FIND NEAREST FACILITY (STEP 2)
+      // ================================
+
+      const searchPoint = turf.point([lon, lat]);
+
+      let nearestFeature = null;
+      let nearestDistance = Infinity;
+
+      HospitalsLayer.eachLayer(function (layer) {
+        const coords = layer.feature.geometry.coordinates;
+        const hospitalPoint = turf.point(coords);
+        const dist = turf.distance(searchPoint, hospitalPoint, { units: "miles" });
+
+        if (dist < nearestDistance) {
+          nearestDistance = dist;
+          nearestFeature = layer.feature;
+        }
+      });
+
+      if (nearestFeature) {
+        const nearestCoords = nearestFeature.geometry.coordinates;
+        const nearestLat = nearestCoords[1];
+        const nearestLon = nearestCoords[0];
+
+        if (nearestLine) {
+          map.removeLayer(nearestLine);
+        }
+
+        if (hospitalMarker) {
+          map.removeLayer(hospitalMarker);
+        }
+
+        if (nearestLineHalo) {
+          map.removeLayer(nearestLineHalo);
+        }
+
+        if (nearestLine) {
+          map.removeLayer(nearestLine);
+        }
+
+        nearestLineHalo = L.polyline(
+          [
+            [lat, lon],
+            [nearestLat, nearestLon]
+          ],
+          {
+            color: "#ffffff",
+            weight: 6,
+            opacity: 0.9
+          }
+        ).addTo(map);
+
+        nearestLine = L.polyline(
+          [
+            [lat, lon],
+            [nearestLat, nearestLon]
+          ],
+          {
+            color: "#1f4e79",
+            weight: 3,
+            opacity: 1
+          }
+        ).addTo(map);
+
+        hospitalMarker = L.circleMarker([nearestLat, nearestLon], {
+          radius: 8,
+          color: "#ffffff",
+          weight: 2,
+          fillColor: "#2F5C3C",
+          fillOpacity: 1
+        }).addTo(map);
+
+        if (distanceLabel) {
+          map.removeLayer(distanceLabel);
+        }
+        if (hospitalLabel) {
+          map.removeLayer(hospitalLabel);
+        }
+
+        hospitalLabel = L.marker([nearestLat, nearestLon], {
+          icon: L.divIcon({
+            className: "hospital-label",
+            html: `<div>${nearestFeature.properties.USER_NAME}</div>`,
+            iconSize: [300, 20],
+            iconAnchor: [-10, 20]
+          })
+        }).addTo(map);
+
+        // midpoint between search + hospital
+        const midLat = (lat + nearestLat) / 2;
+        const midLon = (lon + nearestLon) / 2;
+
+        // calculate perpendicular offset
+        const dx = nearestLon - lon;
+        const dy = nearestLat - lat;
+        const length = Math.sqrt(dx * dx + dy * dy);
+
+        // normalize perpendicular vector
+        const offset = 0.015; // tweak this number
+        const offsetLat = -dx / length * offset;
+        const offsetLon = dy / length * offset;
+
+        // apply offset
+        const labelLat = midLat + offsetLat;
+        const labelLon = midLon + offsetLon;
+
+        distanceLabel = L.marker([labelLat, labelLon], {
+          icon: L.divIcon({
+            className: "distance-label",
+            html: `<div>${nearestDistance.toFixed(1)} mi</div>`,
+            iconSize: [60, 20]
+          })
+        }).addTo(map);
+
+        infoPanel.innerHTML = `
+    <div class="panel-block">
+      <h3>Nearest Hospital</h3>
+      <strong>${nearestFeature.properties.USER_NAME}</strong><br>
+      ${nearestFeature.properties.USER_CITY}, ${nearestFeature.properties.USER_STATE}<br>
+      ${nearestFeature.properties.USER_ADDRESS}<br><br>
+      Distance: ${nearestDistance.toFixed(1)} miles
+    </div>
+  `;
+
+        // zoom to it
+        map.fitBounds(
+          [
+            [lat, lon],
+            [nearestLat, nearestLon]
+          ],
+          {
+            paddingTopLeft: [360, 40],
+            paddingBottomRight: [40, 40]
+          }
+        );
+
+      }
+
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Geocoding error");
+    });
+
+});
