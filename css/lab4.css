@@ -21,3 +21,49 @@ body {
   border-radius: 4px;
   z-index: 1000;
 }
+.hospital-label {
+  background: transparent;
+  border: none;
+}
+
+.result-label {
+  background: rgba(25, 14, 8, 0.82);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  line-height: 1.1;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+  white-space: nowrap;
+}
+
+.result-label-title {
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.result-label-subtitle {
+  font-weight: 600;
+  font-size: 11px;
+  color: #d9d9d9;
+  margin-top: 2px;
+}
+
+.distance-label {
+  background: transparent;
+  border: none;
+}
+
+.distance-label div {
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.leaflet-div-icon {
+  background: transparent;
+  border: none;
+}

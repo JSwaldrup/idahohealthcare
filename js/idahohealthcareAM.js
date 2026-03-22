@@ -17,6 +17,9 @@ function addHoverBehavior(layer, baseStyle) {
   });
 }
 
+// add mapclick enabler
+let enableMapClick = false;
+
 /* =======================
    GLOBAL DATA STORAGE
 ============================ */
@@ -41,9 +44,11 @@ let hospitalMarker = null;
 let hospitalLabel = null;
 let resultsPanel = null;
 
+let nearestLnDHospitalLabel;
 let nearestLnDLine = null;
 let nearestLnDMarker = null;
 let nearestLnDLabel = null;
+let nearestLnDDistanceLabel = null;
 
 /* ===============================
    MAP SETUP
@@ -501,6 +506,7 @@ const IDENTIFY_MIN_ZOOM = 7;
 
 // Map click handler
 map.on("click", function (e) {
+  if (!enableMapClick) return;
   const lng = e.latlng.lng;
   const lat = e.latlng.lat;
 
@@ -590,6 +596,11 @@ function clearSearchDisplay() {
     map.removeLayer(hospitalLabel);
     hospitalLabel = null;
   }
+
+  if (nearestLnDHospitalLabel && map.hasLayer(nearestLnDHospitalLabel)) {
+    map.removeLayer(nearestLnDHospitalLabel);
+    nearestLnDHospitalLabel = null;
+  }
 }
 
 /* =========================================
@@ -659,8 +670,13 @@ function drawNearestResult(searchLat, searchLon, feature, distanceMiles, infoPan
   hospitalLabel = L.marker([nearestLat, nearestLon], {
     icon: L.divIcon({
       className: "hospital-label",
-      html: `<div>${hospName}</div>`,
-      iconSize: [300, 20],
+      html: `
+      <div class="result-label">
+        <div class="result-label-title">${hospName}</div>
+        <div class="result-label-subtitle">Nearest Hospital</div>
+      </div>
+    `,
+      iconSize: [300, 34],
       iconAnchor: [-10, 20]
     })
   }).addTo(map);
@@ -687,68 +703,112 @@ function drawNearestResult(searchLat, searchLon, feature, distanceMiles, infoPan
   if (infoPanel) {
     const p = feature.properties;
 
-    function valueOrBlank(v) {
-      return (v === null || v === undefined || v === "") ? "" : v;
-    }
-
-    function yesNoUnknown(v) {
-      if (v === 1 || v === "1" || v === "Yes" || v === "YES" || v === "Y") return "Yes";
-      if (v === 0 || v === "0" || v === "No" || v === "NO" || v === "N") return "No";
-      return valueOrBlank(v);
-    }
-
-    function row(label, value) {
-      return `
-      <div style="margin-bottom:6px;">
-        <span style="opacity:0.7;">${label}:</span>
-        <strong>${valueOrBlank(value)}</strong>
-      </div>
-    `;
-    }
-
+    // Build panel shell
     resultsPanel.innerHTML = `
     <div class="panel-block">
-      <div style="font-size:12px; letter-spacing:1px; opacity:0.7; margin-bottom:8px;">
-        NEAREST HOSPITAL
+      <div class="result-toggle" style="display:flex; gap:6px; margin-bottom:10px;">
+        <button id="tab-hospital" class="result-tab active" style="flex:1;">Hospital</button>
+        <button id="tab-lnd" class="result-tab" style="flex:1;">L&D</button>
       </div>
 
-      <div style="font-size:18px; font-weight:700; line-height:1.25; margin-bottom:14px;">
-        ${valueOrBlank(p.USER_NAME)}
-      </div>
-
-      ${row("Address", p.USER_ADDRESS)}
-      ${row("City", p.USER_CITY)}
-      ${row("State", p.USER_STATE)}
-      ${row("ZIP", p.USER_ZIP)}
-      ${row("Telephone", p.USER_TELEPHONE)}
-      ${row("Type", p.USER_TYPE)}
-      ${row("County", p.USER_COUNTY)}
-      ${row("Website", p.USER_WEBSITE)}
-      ${row("Beds", p.USER_BEDS)}
-      ${row("Trauma", yesNoUnknown(p.USER_TRAUMA))}
-      ${row("Helipad", yesNoUnknown(p.USER_HELIPAD))}
-      ${row("Hospital Count", p.USER_hosp_cnt)}
-      ${row("HSA Label", p.USER_HSA_label)}
-      ${row("L&D", yesNoUnknown(p.USER_LnD))}
-      ${row("Pediatric", yesNoUnknown(p.USER_Pediatric))}
-      ${row("Gyn", yesNoUnknown(p.USER_Gyn))}
-      ${row("MFM", yesNoUnknown(p.USER_MFM))}
-      ${row("Critical Access", yesNoUnknown(p.USER_CriticalAccess))}
-      ${row("Acute Care", yesNoUnknown(p.USER_Acute_care))}
-      ${row("Distance", `${distanceMiles.toFixed(1)} miles`)}
+      <div id="result-details"></div>
     </div>
   `;
+
+    const detailsDiv = document.getElementById("result-details");
+    detailsDiv.innerHTML = renderHospitalDetails(p, distanceMiles);
+    const tabHospital = document.getElementById("tab-hospital");
+    const tabLnd = document.getElementById("tab-lnd");
+
+    if (!tabHospital || !tabLnd) {
+      console.warn("Tab buttons not found");
+      return;
+    }
+
+    // default already showing hospital (you did this correctly)
+
+    // Hospital tab click
+    tabHospital.addEventListener("click", function () {
+      tabHospital.classList.add("active");
+      tabLnd.classList.remove("active");
+
+      if (window.currentNearestHospital && window.currentNearestHospital.properties) {
+        detailsDiv.innerHTML = renderHospitalDetails(
+          window.currentNearestHospital.properties,
+          window.currentNearestHospitalDistance
+        );
+      }
+    });
+
+    // LnD tab click
+    tabLnd.addEventListener("click", function () {
+      tabLnd.classList.add("active");
+      tabHospital.classList.remove("active");
+
+      if (window.currentNearestLnD && window.currentNearestLnD.properties) {
+        detailsDiv.innerHTML = renderHospitalDetails(
+          window.currentNearestLnD.properties,
+          window.currentNearestLnDDistance / 1609.34
+        );
+      } else {
+        detailsDiv.innerHTML = `<em>No L&D facility found.</em>`;
+      }
+    });
+
+  }
+}
+
+/* =========================================
+   RENDER HOSPITAL DETAILS
+========================================= */
+function renderHospitalDetails(p, distanceMiles) {
+
+  function valueOrBlank(v) {
+    return (v === null || v === undefined || v === "") ? "" : v;
   }
 
-  map.fitBounds(
-    [
-      [searchLat, searchLon],
-      [nearestLat, nearestLon]
-    ],
-    {
-      paddingTopLeft: [360, 40],
-      paddingBottomRight: [40, 40]
-    }
+  function yesNoUnknown(v) {
+    if (v === 1 || v === "1" || v === "Yes" || v === "YES" || v === "Y") return "Yes";
+    if (v === 0 || v === "0" || v === "No" || v === "NO" || v === "N") return "No";
+    return valueOrBlank(v);
+  }
+
+  function row(label, value) {
+    return (
+      '<div style="margin-bottom:6px;">' +
+      '<span style="opacity:0.7;">' + label + ':</span> ' +
+      '<strong>' + valueOrBlank(value) + '</strong>' +
+      '</div>'
+    );
+  }
+
+  return (
+    '<div style="font-size:12px; letter-spacing:1px; opacity:0.7; margin-bottom:8px;">NEAREST HOSPITAL</div>' +
+
+    '<div style="font-size:18px; font-weight:700; line-height:1.25; margin-bottom:14px;">' +
+    valueOrBlank(p.USER_NAME) +
+    '</div>' +
+
+    row("Address", p.USER_ADDRESS) +
+    row("City", p.USER_CITY) +
+    row("State", p.USER_STATE) +
+    row("ZIP", p.USER_ZIP) +
+    row("Telephone", p.USER_TELEPHONE) +
+    row("Type", p.USER_TYPE) +
+    row("County", p.USER_COUNTY) +
+    row("Website", p.USER_WEBSITE) +
+    row("Beds", p.USER_BEDS) +
+    row("Trauma", yesNoUnknown(p.USER_TRAUMA)) +
+    row("Helipad", yesNoUnknown(p.USER_HELIPAD)) +
+    row("Hospital Count", p.USER_hosp_cnt) +
+    row("HSA Label", p.USER_HSA_label) +
+    row("L&D", yesNoUnknown(p.USER_LnD)) +
+    row("Pediatric", yesNoUnknown(p.USER_Pediatric)) +
+    row("Gyn", yesNoUnknown(p.USER_Gyn)) +
+    row("MFM", yesNoUnknown(p.USER_MFM)) +
+    row("Critical Access", yesNoUnknown(p.USER_CriticalAccess)) +
+    row("Acute Care", yesNoUnknown(p.USER_Acute_care)) +
+    row("Distance", distanceMiles.toFixed(1) + " miles")
   );
 }
 
@@ -785,6 +845,7 @@ function findNearestHospital(searchLat, searchLon, infoPanel) {
   }
 
   drawNearestResult(searchLat, searchLon, nearestFeature, nearestDistance, infoPanel);
+
   let nearestLnD = null;
   let minLnDDist = Infinity;
 
@@ -794,7 +855,6 @@ function findNearestHospital(searchLat, searchLon, infoPanel) {
     if (Number(props.USER_LnD) === 1) {
       const coords = layer.feature.geometry.coordinates;
       const latlng = [coords[1], coords[0]];
-
       const d = map.distance([searchLat, searchLon], latlng);
 
       if (d < minLnDDist) {
@@ -804,123 +864,109 @@ function findNearestHospital(searchLat, searchLon, infoPanel) {
     }
   });
 
-  if (nearestLnD) {
-    console.log("Nearest LnD found:", nearestLnD.properties.USER_NAME, minLnDDist);
-  }
+  window.currentNearestHospital = nearestFeature;
+  window.currentNearestHospitalDistance = nearestDistance;
+  window.currentNearestLnD = nearestLnD;
+  window.currentNearestLnDDistance = minLnDDist;
 
   if (nearestLnD) {
+    console.log("Nearest LnD found:", nearestLnD.properties.USER_NAME, minLnDDist);
+
     const coords = nearestLnD.geometry.coordinates;
     const lndLatLng = [coords[1], coords[0]];
 
-    nearestLnDMarker = L.marker(lndLatLng).addTo(map);
+    const nearestName =
+      nearestFeature.properties.USER_NAME ||
+      nearestFeature.properties.NAME ||
+      nearestFeature.properties.name ||
+      "Hospital";
 
-    // halo (draw first, underneath)
+    const lndName =
+      nearestLnD.properties.USER_NAME ||
+      nearestLnD.properties.NAME ||
+      nearestLnD.properties.name ||
+      "Hospital";
 
-    nearestLnDHalo = L.polyline(
-      [[searchLat, searchLon], lndLatLng],
-      {
-        color: "#ffffff",
-        weight: 6,
-        opacity: 0.9
-      }
-    ).addTo(map);
+    const sameFacility =
+      (
+        (nearestFeature.properties.USER_NAME || nearestFeature.properties.NAME || nearestFeature.properties.name || "") ===
+        (nearestLnD.properties.USER_NAME || nearestLnD.properties.NAME || nearestLnD.properties.name || "")
+      ) &&
+      nearestFeature.geometry.coordinates[0] === nearestLnD.geometry.coordinates[0] &&
+      nearestFeature.geometry.coordinates[1] === nearestLnD.geometry.coordinates[1];
 
-    // dashed LnD line (on top)
-    nearestLnDLine = L.polyline(
-      [[searchLat, searchLon], lndLatLng],
-      {
-        color: "#2F5C3C",
-        weight: 2,
-        dashArray: "6,4"
-      }
-    ).addTo(map);
+    console.log("sameFacility:", sameFacility, nearestName, lndName);
 
-    const lndMiles = (minLnDDist / 1609.34).toFixed(1);
-
-    // midpoint of LnD line
-    const midLat = (searchLat + lndLatLng[0]) / 2;
-    const midLng = (searchLon + lndLatLng[1]) / 2;
-
-    nearestLnDLabel = L.marker([midLat, midLng], {
-
-      icon: L.divIcon({
-        className: "distance-label",
-        html: `
-      <div style="
-        display:inline-block;
-        padding:2px 8px;
-        border-radius:12px;
-        background:#000;
-        color:#fff;
-        border:2px solid #fff;
-        font-size:12px;
-        font-weight:700;
-        line-height:1.2;
-        white-space:nowrap;
-      ">
-        ${lndMiles} mi
-      </div>
-    `,
-        iconSize: [70, 24],
-        iconAnchor: [35, 12]
-      })
-    }).addTo(map);
-  }
-
-  // 👇 ADD THIS BLOCK RIGHT HERE
-
-  const p = nearestFeature.properties;
-  console.log("LnD value:", p.USER_LnD);
-
-  if (p.USER_LnD === "No") {
-
-    let nearestLnD = null;
-    let minDist = Infinity;
-
-    HospitalsLayer.eachLayer(function (layer) {
-      const props = layer.feature.properties;
-      console.log("Checking LnD candidate:", props.USER_LnD);
-
-      if (Number(props.USER_LnD) === 1) {
-        const coords = layer.feature.geometry.coordinates;
-        const latlng = [coords[1], coords[0]];
-
-        const d = map.distance(
-          [searchLat, searchLon],
-          latlng
-        );
-
-        if (d < minDist) {
-          minDist = d;
-          nearestLnD = layer.feature;
-        }
-      }
-    });
-    console.log("Nearest LnD hospital found:", !!nearestLnD, "Distance (m):", minDist);
-
-    if (nearestLnD) {
-
-      const coords = nearestLnD.geometry.coordinates;
-      const lndLatLng = [coords[1], coords[0]];
-
+    if (!sameFacility) {
       nearestLnDMarker = L.circleMarker(lndLatLng, {
         radius: 8,
         color: "#ffffff",
         weight: 2,
-        fillColor: "#2F5C3C",
+        fillColor: "#C98F2B",
         fillOpacity: 1
       }).addTo(map);
+
+      nearestLnDHospitalLabel = L.marker(lndLatLng, {
+        icon: L.divIcon({
+          className: "hospital-label",
+          html: `
+            <div class="result-label">
+              <div class="result-label-title">${lndName}</div>
+              <div class="result-label-subtitle">Nearest LnD</div>
+            </div>
+          `,
+          iconSize: [300, 34],
+          iconAnchor: [-10, 20]
+        })
+      }).addTo(map);
+
+      nearestLnDHalo = L.polyline(
+        [[searchLat, searchLon], lndLatLng],
+        {
+          color: "#ffffff",
+          weight: 6,
+          opacity: 0.9
+        }
+      ).addTo(map);
 
       nearestLnDLine = L.polyline(
         [[searchLat, searchLon], lndLatLng],
         {
-          color: "#2F5C3C",
+          color: "#C98F2B",
           weight: 2,
           dashArray: "6,4"
         }
       ).addTo(map);
 
+      const lndMiles = (minLnDDist / 1609.34).toFixed(1);
+      const midLat = (searchLat + lndLatLng[0]) / 2;
+      const midLng = (searchLon + lndLatLng[1]) / 2;
+
+      nearestLnDDistanceLabel = L.marker([midLat, midLng], {
+        icon: L.divIcon({
+          className: "distance-label",
+          html: `<div>${lndMiles} mi</div>`,
+          iconSize: [70, 20]
+        })
+      }).addTo(map);
     }
+
+    const bounds = L.latLngBounds([
+      [searchLat, searchLon],
+      [nearestFeature.geometry.coordinates[1], nearestFeature.geometry.coordinates[0]]
+    ]);
+
+    if (!sameFacility) {
+      bounds.extend([
+        nearestLnD.geometry.coordinates[1],
+        nearestLnD.geometry.coordinates[0]
+      ]);
+    }
+
+    map.fitBounds(bounds, {
+      paddingTopLeft: [360, 40],
+      paddingBottomRight: [40, 40]
+    });
   }
 }
 
@@ -960,18 +1006,20 @@ document.addEventListener("DOMContentLoaded", function () {
     openPanelBtn.style.display = "block";
   });
 
-clearBtn.addEventListener("click", function () {
-  console.log("clear button clicked");
+  clearBtn.addEventListener("click", function () {
+    console.log("clear button clicked");
 
-  // clear everything via one function
-  clearSearchDisplay();
+    // clear everything via one function
+    clearSearchDisplay();
 
-  // reset panel
-  resultsPanel.innerHTML = `<em>Click search to locate address</em>`;
+    // reset panel
+    resultsPanel.innerHTML = `< em > Click search to locate address</em> `;
 
-  // clear input
-  addressInput.value = "";
-});  searchBtn.addEventListener("click", function () {
+    // clear input
+    addressInput.value = "";
+  });
+
+  searchBtn.addEventListener("click", function () {
     console.log("search button clicked");
 
     const address = addressInput.value.trim();
