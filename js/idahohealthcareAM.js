@@ -86,10 +86,10 @@ const MAPBOX_TOKEN = "pk.eyJ1IjoianN3YWxkcnVwIiwiYSI6ImNtbGZoeXBmazAyNTczY29wazN
 const MAPBOX_USERNAME = "jswaldrup";
 const MAPBOX_STYLE_ID = "cmmoca1zh003x01rn6yrq472o";
 
-const STYLE_BUST = "20260318roads1";
+const STYLE_BUST = "20260401a"; // change this value to force browsers to load the latest style updates (e.g. after making changes in Mapbox Studio)
 
 const mapboxBasemap = L.tileLayer(
-  `https://api.mapbox.com/styles/v1/${MAPBOX_USERNAME}/${MAPBOX_STYLE_ID}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}&v=${STYLE_BUST}`,
+  `https://api.mapbox.com/styles/v1/${MAPBOX_USERNAME}/${MAPBOX_STYLE_ID}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}&fresh=${STYLE_BUST}`,
   {
     tileSize: 512,
     zoomOffset: -1,
