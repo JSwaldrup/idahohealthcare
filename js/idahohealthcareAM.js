@@ -72,7 +72,10 @@ console.log("landing zoom:", map.getZoom());
 
 map.once("moveend", () => {
   console.log("post-fit zoom:", map.getZoom());
-  map.setZoom(map.getZoom() + 1);
+  const currentZoom = map.getZoom();
+  if (currentZoom > map.getMinZoom()) {
+    map.setZoom(currentZoom - 1);
+  }
 });
 
 // --- Mapbox Studio style as raster tiles in Leaflet ---
@@ -116,7 +119,7 @@ const studyBounds = L.latLngBounds(
   [40.8, -124.9], // SW
   [49.2, -104.0]  // NE
 );
-map.fitBounds(studyBounds);
+map.fitBounds(studyBounds.pad(0.20));
 
 // ---- Title + Description ----
 const titleControl = L.control({ position: "topright" });
