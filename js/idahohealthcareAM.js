@@ -50,6 +50,8 @@ let nearestLnDMarker = null;
 let nearestLnDLabel = null;
 let nearestLnDDistanceLabel = null;
 
+let idahoBoundaryLayer = null;
+
 /* ===============================
    MAP SETUP
 ================================ */
@@ -62,10 +64,16 @@ const rasterBounds = L.latLngBounds(
 
 const map = L.map("map", {
   minZoom: 6,
-  maxZoom: 12
+  maxZoom: 14
 });
 
-map.fitBounds(rasterBounds.pad(0.22));
+map.fitBounds(rasterBounds.pad(0.12));
+console.log("landing zoom:", map.getZoom());
+
+map.once("moveend", () => {
+  console.log("post-fit zoom:", map.getZoom());
+  map.setZoom(map.getZoom() + 1);
+});
 
 // --- Mapbox Studio style as raster tiles in Leaflet ---
 const MAPBOX_TOKEN = "pk.eyJ1IjoianN3YWxkcnVwIiwiYSI6ImNtbGZoeXBmazAyNTczY29wazN6dnByMDMifQ.b-Mz0bka9Uw85H9hTMV1mg";
@@ -296,6 +304,7 @@ let ThirtyTo60Layer;
 let SixtyToNinetyLayer;
 let NinetyToOneTwentyLayer;
 let OneTwentyToOneFiftyLayer;
+let driveTimeGroup; // Group to hold all drivetime layers
 let layerControl;
 
 function refreshLayerControl() {
@@ -307,6 +316,23 @@ function refreshLayerControl() {
 
   if (hrrLayer) overlayMaps["HRR Regions"] = hrrLayer;
   if (hsaLayer) overlayMaps["HSA Regions"] = hsaLayer;
+  
+  // Create or update the drivetime layer group
+  if (ZeroToThirtyLayer || ThirtyTo60Layer || SixtyToNinetyLayer || NinetyToOneTwentyLayer || OneTwentyToOneFiftyLayer) {
+    if (!driveTimeGroup) {
+      driveTimeGroup = L.layerGroup();
+    }
+    // Clear and rebuild the group
+    driveTimeGroup.clearLayers();
+    if (ZeroToThirtyLayer) driveTimeGroup.addLayer(ZeroToThirtyLayer);
+    if (ThirtyTo60Layer) driveTimeGroup.addLayer(ThirtyTo60Layer);
+    if (SixtyToNinetyLayer) driveTimeGroup.addLayer(SixtyToNinetyLayer);
+    if (NinetyToOneTwentyLayer) driveTimeGroup.addLayer(NinetyToOneTwentyLayer);
+    if (OneTwentyToOneFiftyLayer) driveTimeGroup.addLayer(OneTwentyToOneFiftyLayer);
+    
+    overlayMaps["Drivetime Bands"] = driveTimeGroup;
+  }
+  
   if (HospitalsLayer) overlayMaps["Hospitals"] = HospitalsLayer;
 
   layerControl = L.control.layers(null, overlayMaps, {
@@ -326,10 +352,12 @@ fetch("data/ZeroToThirty.geojson")
     ZeroToThirtyLayer = L.geoJSON(data, {
       style: styleZeroToThirty,
       interactive: false
-    }).addTo(map);
+    });
 
     refreshLayerControl();
+    updateDriveLayers();
   });
+  
 
 fetch("data/ThirtyTo60.geojson")
   .then(res => res.json())
@@ -338,9 +366,10 @@ fetch("data/ThirtyTo60.geojson")
     ThirtyTo60Layer = L.geoJSON(data, {
       style: styleThirtyTo60,
       interactive: false
-    }).addTo(map);
+    });
 
     refreshLayerControl();
+    updateDriveLayers();
   });
 
 fetch("data/SixtyToNinety.geojson")
@@ -350,9 +379,10 @@ fetch("data/SixtyToNinety.geojson")
     SixtyToNinetyLayer = L.geoJSON(data, {
       style: styleSixtyToNinety,
       interactive: false
-    }).addTo(map);
+    });
 
     refreshLayerControl();
+    updateDriveLayers();
   });
 
 fetch("data/NinetyToOneTwenty.geojson")
@@ -362,9 +392,10 @@ fetch("data/NinetyToOneTwenty.geojson")
     NinetyToOneTwentyLayer = L.geoJSON(data, {
       style: styleNinetyToOneTwenty,
       interactive: false
-    }).addTo(map);
+    });
 
     refreshLayerControl();
+    updateDriveLayers();
   });
 
 fetch("data/OneTwentyToOneFifty.geojson")
@@ -374,9 +405,10 @@ fetch("data/OneTwentyToOneFifty.geojson")
     OneTwentyToOneFiftyLayer = L.geoJSON(data, {
       style: styleOneTwentyToOneFifty,
       interactive: false
-    }).addTo(map);
+    });
 
     refreshLayerControl();
+    updateDriveLayers();
   });
 
 function yesNo(value) {
@@ -424,10 +456,7 @@ function findContainingFeature(featureCollection, lng, lat) {
 
 function getDriveOpacity() {
   const z = map.getZoom();
-
   if (z <= 7) return 1.0;
-  if (z === 8) return 0.65;
-  if (z === 9) return 0.25;
   return 0.0;
 }
 
@@ -472,6 +501,7 @@ function styleOneTwentyToOneFifty() {
 }
 
 function updateDriveLayers() {
+  // Update styles for all drivetime layers
   if (ZeroToThirtyLayer) ZeroToThirtyLayer.setStyle(styleZeroToThirty());
   if (ThirtyTo60Layer) ThirtyTo60Layer.setStyle(styleThirtyTo60());
   if (SixtyToNinetyLayer) SixtyToNinetyLayer.setStyle(styleSixtyToNinety());
@@ -489,18 +519,17 @@ function getDriveTimeLabel(lng, lat) {
 }
 
 // ---- Zoom-based switching ----
+const LANDING_ZOOM = 7; // Store landing zoom level for drivetime layer visibility
+
 function updateLayers() {
   if (!map.hasLayer(placeLabels)) placeLabels.addTo(map);
   if (map.hasLayer(hrrLabelLayer)) map.removeLayer(hrrLabelLayer);
 }
 
-/*
 map.on("zoomend", function () {
-  updateLayers();
   updateDriveLayers();
   if (idahoBoundaryLayer) idahoBoundaryLayer.bringToFront();
 });
-*/
 
 const IDENTIFY_MIN_ZOOM = 7;
 
@@ -823,151 +852,205 @@ function findNearestHospital(searchLat, searchLon, infoPanel) {
   }
 
   const searchPoint = turf.point([searchLon, searchLat]);
-  let nearestFeature = null;
-  let nearestDistance = Infinity;
+  const hospitalCandidates = [];
 
   HospitalsLayer.eachLayer(function (layer) {
     if (!layer.feature || !layer.feature.geometry || !layer.feature.geometry.coordinates) return;
-
     const coords = layer.feature.geometry.coordinates;
     const hospitalPoint = turf.point(coords);
-    const dist = turf.distance(searchPoint, hospitalPoint, { units: "miles" });
-
-    if (dist < nearestDistance) {
-      nearestDistance = dist;
-      nearestFeature = layer.feature;
-    }
+    const straightDist = turf.distance(searchPoint, hospitalPoint, { units: "miles" });
+    hospitalCandidates.push({ feature: layer.feature, coords, straightDist });
   });
 
-  if (!nearestFeature) {
+  if (hospitalCandidates.length === 0) {
     alert("No hospital features available for search.");
     return;
   }
 
-  drawNearestResult(searchLat, searchLon, nearestFeature, nearestDistance, infoPanel);
+  hospitalCandidates.sort((a, b) => a.straightDist - b.straightDist);
 
-  let nearestLnD = null;
-  let minLnDDist = Infinity;
+  const MAX_MATRIX_POINTS = 25; // Mapbox Matrix limit
+  const hospitalMatrixCandidates = hospitalCandidates.slice(0, MAX_MATRIX_POINTS - 1);
+  const matrixCoords = [[searchLon, searchLat], ...hospitalMatrixCandidates.map(item => item.coords)];
+  const coordString = matrixCoords.map(c => c.join(",")).join(";");
+  const matrixUrl = `https://api.mapbox.com/directions-matrix/v1/mapbox/driving/${coordString}?access_token=${MAPBOX_TOKEN}&annotations=distance&sources=0`;
 
-  HospitalsLayer.eachLayer(function (layer) {
-    const props = layer.feature.properties;
-
-    if (Number(props.USER_LnD) === 1) {
-      const coords = layer.feature.geometry.coordinates;
-      const latlng = [coords[1], coords[0]];
-      const d = map.distance([searchLat, searchLon], latlng);
-
-      if (d < minLnDDist) {
-        minLnDDist = d;
-        nearestLnD = layer.feature;
+  fetch(matrixUrl)
+    .then(res => res.json())
+    .then(data => {
+      if (data.code && data.code !== "Ok") {
+        console.error("Mapbox Matrix error:", data);
+        alert("Could not calculate road distances. Please try again.");
+        return;
       }
-    }
-  });
 
-  window.currentNearestHospital = nearestFeature;
-  window.currentNearestHospitalDistance = nearestDistance;
-  window.currentNearestLnD = nearestLnD;
-  window.currentNearestLnDDistance = minLnDDist;
+      if (!data.distances || !data.distances[0] || data.distances[0].length < 2) {
+        alert("Could not calculate distances. Please try again.");
+        return;
+      }
 
-  if (nearestLnD) {
-    console.log("Nearest LnD found:", nearestLnD.properties.USER_NAME, minLnDDist);
+      const distances = data.distances[0];
+      let nearestIdx = 1;
+      let nearestDist = distances[1];
 
-    const coords = nearestLnD.geometry.coordinates;
-    const lndLatLng = [coords[1], coords[0]];
-
-    const nearestName =
-      nearestFeature.properties.USER_NAME ||
-      nearestFeature.properties.NAME ||
-      nearestFeature.properties.name ||
-      "Hospital";
-
-    const lndName =
-      nearestLnD.properties.USER_NAME ||
-      nearestLnD.properties.NAME ||
-      nearestLnD.properties.name ||
-      "Hospital";
-
-    const sameFacility =
-      (
-        (nearestFeature.properties.USER_NAME || nearestFeature.properties.NAME || nearestFeature.properties.name || "") ===
-        (nearestLnD.properties.USER_NAME || nearestLnD.properties.NAME || nearestLnD.properties.name || "")
-      ) &&
-      nearestFeature.geometry.coordinates[0] === nearestLnD.geometry.coordinates[0] &&
-      nearestFeature.geometry.coordinates[1] === nearestLnD.geometry.coordinates[1];
-
-    console.log("sameFacility:", sameFacility, nearestName, lndName);
-
-    if (!sameFacility) {
-      nearestLnDMarker = L.circleMarker(lndLatLng, {
-        radius: 8,
-        color: "#ffffff",
-        weight: 2,
-        fillColor: "#C98F2B",
-        fillOpacity: 1
-      }).addTo(map);
-
-      nearestLnDHospitalLabel = L.marker(lndLatLng, {
-        icon: L.divIcon({
-          className: "hospital-label",
-          html: `
-            <div class="result-label">
-              <div class="result-label-title">${lndName}</div>
-              <div class="result-label-subtitle">Nearest LnD</div>
-            </div>
-          `,
-          iconSize: [300, 34],
-          iconAnchor: [-10, 20]
-        })
-      }).addTo(map);
-
-      nearestLnDHalo = L.polyline(
-        [[searchLat, searchLon], lndLatLng],
-        {
-          color: "#ffffff",
-          weight: 6,
-          opacity: 0.9
+      for (let i = 2; i < distances.length; i++) {
+        if (distances[i] < nearestDist) {
+          nearestDist = distances[i];
+          nearestIdx = i;
         }
-      ).addTo(map);
+      }
 
-      nearestLnDLine = L.polyline(
-        [[searchLat, searchLon], lndLatLng],
-        {
-          color: "#C98F2B",
-          weight: 2,
-          dashArray: "6,4"
-        }
-      ).addTo(map);
+      const nearestFeature = hospitalMatrixCandidates[nearestIdx - 1].feature;
+      const nearestDistanceMiles = nearestDist / 1609.34;
 
-      const lndMiles = (minLnDDist / 1609.34).toFixed(1);
-      const midLat = (searchLat + lndLatLng[0]) / 2;
-      const midLng = (searchLon + lndLatLng[1]) / 2;
+      window.currentNearestHospital = nearestFeature;
+      window.currentNearestHospitalDistance = nearestDistanceMiles;
 
-      nearestLnDDistanceLabel = L.marker([midLat, midLng], {
-        icon: L.divIcon({
-          className: "distance-label",
-          html: `<div>${lndMiles} mi</div>`,
-          iconSize: [70, 20]
+      drawNearestResult(searchLat, searchLon, nearestFeature, nearestDistanceMiles, infoPanel);
+
+      const lndCandidates = hospitalCandidates
+        .filter(item => Number(item.feature.properties.USER_LnD) === 1)
+        .slice(0, MAX_MATRIX_POINTS - 1);
+
+      if (lndCandidates.length === 0) {
+        window.currentNearestLnD = null;
+        window.currentNearestLnDDistance = null;
+        return;
+      }
+
+      const lndCoords = [[searchLon, searchLat], ...lndCandidates.map(item => item.coords)];
+      const lndCoordString = lndCoords.map(c => c.join(",")).join(";");
+      const lndMatrixUrl = `https://api.mapbox.com/directions-matrix/v1/mapbox/driving/${lndCoordString}?access_token=${MAPBOX_TOKEN}&annotations=distance&sources=0`;
+
+      fetch(lndMatrixUrl)
+        .then(res => res.json())
+        .then(lndData => {
+          if (lndData.code && lndData.code !== "Ok") {
+            console.error("Mapbox Matrix LnD error:", lndData);
+            return;
+          }
+
+          if (!lndData.distances || !lndData.distances[0] || lndData.distances[0].length < 2) {
+            console.log("Could not calculate L&D distances");
+            return;
+          }
+
+          const lndDistances = lndData.distances[0];
+          let nearestLnDIdx = 1;
+          let nearestLnDDist = lndDistances[1];
+
+          for (let i = 2; i < lndDistances.length; i++) {
+            if (lndDistances[i] < nearestLnDDist) {
+              nearestLnDDist = lndDistances[i];
+              nearestLnDIdx = i;
+            }
+          }
+
+          const nearestLnD = lndCandidates[nearestLnDIdx - 1].feature;
+          const nearestLnDDistMeters = nearestLnDDist;
+
+          window.currentNearestLnD = nearestLnD;
+          window.currentNearestLnDDistance = nearestLnDDistMeters;
+
+          const nearestName = nearestFeature.properties.USER_NAME || nearestFeature.properties.NAME || "Hospital";
+          const lndName = nearestLnD.properties.USER_NAME || nearestLnD.properties.NAME || "Hospital";
+
+          const sameFacility =
+            (nearestFeature.properties.USER_NAME || nearestFeature.properties.NAME || "") ===
+            (nearestLnD.properties.USER_NAME || nearestLnD.properties.NAME || "") &&
+            nearestFeature.geometry.coordinates[0] === nearestLnD.geometry.coordinates[0] &&
+            nearestFeature.geometry.coordinates[1] === nearestLnD.geometry.coordinates[1];
+
+          if (!sameFacility) {
+            const coords = nearestLnD.geometry.coordinates;
+            const lndLatLng = [coords[1], coords[0]];
+
+            nearestLnDMarker = L.circleMarker(lndLatLng, {
+              radius: 8,
+              color: "#ffffff",
+              weight: 2,
+              fillColor: "#C98F2B",
+              fillOpacity: 1
+            }).addTo(map);
+
+            nearestLnDHospitalLabel = L.marker(lndLatLng, {
+              icon: L.divIcon({
+                className: "hospital-label",
+                html: `
+                  <div class="result-label">
+                    <div class="result-label-title">${lndName}</div>
+                    <div class="result-label-subtitle">Nearest LnD</div>
+                  </div>
+                `,
+                iconSize: [300, 34],
+                iconAnchor: [-10, 20]
+              })
+            }).addTo(map);
+
+            nearestLnDHalo = L.polyline(
+              [[searchLat, searchLon], lndLatLng],
+              {
+                color: "#ffffff",
+                weight: 6,
+                opacity: 0.9
+              }
+            ).addTo(map);
+
+            nearestLnDLine = L.polyline(
+              [[searchLat, searchLon], lndLatLng],
+              {
+                color: "#C98F2B",
+                weight: 2,
+                dashArray: "6,4"
+              }
+            ).addTo(map);
+
+            const lndMiles = (nearestLnDDistMeters / 1609.34).toFixed(1);
+            const midLat = (searchLat + lndLatLng[0]) / 2;
+            const midLng = (searchLon + lndLatLng[1]) / 2;
+
+            nearestLnDDistanceLabel = L.marker([midLat, midLng], {
+              icon: L.divIcon({
+                className: "distance-label",
+                html: `<div>${lndMiles} mi</div>`,
+                iconSize: [70, 20]
+              })
+            }).addTo(map);
+
+            const bounds = L.latLngBounds([
+              [searchLat, searchLon],
+              [nearestFeature.geometry.coordinates[1], nearestFeature.geometry.coordinates[0]]
+            ]);
+
+            bounds.extend([
+              nearestLnD.geometry.coordinates[1],
+              nearestLnD.geometry.coordinates[0]
+            ]);
+
+            map.fitBounds(bounds, {
+              paddingTopLeft: [360, 40],
+              paddingBottomRight: [40, 40]
+            });
+          } else {
+            const bounds = L.latLngBounds([
+              [searchLat, searchLon],
+              [nearestFeature.geometry.coordinates[1], nearestFeature.geometry.coordinates[0]]
+            ]);
+
+            map.fitBounds(bounds, {
+              paddingTopLeft: [360, 40],
+              paddingBottomRight: [40, 40]
+            });
+          }
         })
-      }).addTo(map);
-    }
-
-    const bounds = L.latLngBounds([
-      [searchLat, searchLon],
-      [nearestFeature.geometry.coordinates[1], nearestFeature.geometry.coordinates[0]]
-    ]);
-
-    if (!sameFacility) {
-      bounds.extend([
-        nearestLnD.geometry.coordinates[1],
-        nearestLnD.geometry.coordinates[0]
-      ]);
-    }
-
-    map.fitBounds(bounds, {
-      paddingTopLeft: [360, 40],
-      paddingBottomRight: [40, 40]
+        .catch(err => {
+          console.error("L&D distance calculation error:", err);
+        });
+    })
+    .catch(err => {
+      console.error("Distance calculation error:", err);
+      alert("Error calculating distances. Please try again.");
     });
-  }
 }
 
 /* =========================================
