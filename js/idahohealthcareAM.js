@@ -4,6 +4,8 @@ Drivetime Trade Areas + Functional Healthcare Regions around regional hospitals.
 Jon Waldrup
 ========================================================= */
 
+console.log("VERSION CHECK APRIL 1");
+
 console.log("idahohealthcare loaded");
 
 function addHoverBehavior(layer, baseStyle) {
