@@ -152,23 +152,31 @@
   z-index: 1100;
   background: rgba(12, 16, 28, 0.85);
   color: #e8eefc;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.12);
   font-size: 13px;
   line-height: 1.4;
   box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  max-width: 240px;
 }
 
 .legend-title {
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  white-space: normal;
+}
+
+.legend-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 .box {
@@ -198,12 +206,14 @@
 
 <!-- Legend -->
 <div id="dt-legend">
-  <div class="legend-title">Drive Time (minutes)</div>
-  <div class="legend-item"><span class="box box-0"></span> 0-30</div>
-  <div class="legend-item"><span class="box box-1"></span> 30-60</div>
-  <div class="legend-item"><span class="box box-2"></span> 60-90</div>
-  <div class="legend-item"><span class="box box-3"></span> 90-120</div>
-  <div class="legend-item"><span class="box box-4"></span> 120-150</div>
+  <div class="legend-title">Time to nearest Labor and Delivery facility (minutes)</div>
+  <div class="legend-items">
+    <div class="legend-item"><span class="box box-0"></span> 0-30</div>
+    <div class="legend-item"><span class="box box-1"></span> 30-60</div>
+    <div class="legend-item"><span class="box box-2"></span> 60-90</div>
+    <div class="legend-item"><span class="box box-3"></span> 90-120</div>
+    <div class="legend-item"><span class="box box-4"></span> 120-150</div>
+  </div>
 </div>
 
 <div id="info-panel">

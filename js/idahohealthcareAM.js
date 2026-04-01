@@ -304,7 +304,6 @@ let ThirtyTo60Layer;
 let SixtyToNinetyLayer;
 let NinetyToOneTwentyLayer;
 let OneTwentyToOneFiftyLayer;
-let driveTimeGroup; // Group to hold all drivetime layers
 let layerControl;
 
 function refreshLayerControl() {
@@ -316,23 +315,6 @@ function refreshLayerControl() {
 
   if (hrrLayer) overlayMaps["HRR Regions"] = hrrLayer;
   if (hsaLayer) overlayMaps["HSA Regions"] = hsaLayer;
-  
-  // Create or update the drivetime layer group
-  if (ZeroToThirtyLayer || ThirtyTo60Layer || SixtyToNinetyLayer || NinetyToOneTwentyLayer || OneTwentyToOneFiftyLayer) {
-    if (!driveTimeGroup) {
-      driveTimeGroup = L.layerGroup();
-    }
-    // Clear and rebuild the group
-    driveTimeGroup.clearLayers();
-    if (ZeroToThirtyLayer) driveTimeGroup.addLayer(ZeroToThirtyLayer);
-    if (ThirtyTo60Layer) driveTimeGroup.addLayer(ThirtyTo60Layer);
-    if (SixtyToNinetyLayer) driveTimeGroup.addLayer(SixtyToNinetyLayer);
-    if (NinetyToOneTwentyLayer) driveTimeGroup.addLayer(NinetyToOneTwentyLayer);
-    if (OneTwentyToOneFiftyLayer) driveTimeGroup.addLayer(OneTwentyToOneFiftyLayer);
-    
-    overlayMaps["Drivetime Bands"] = driveTimeGroup;
-  }
-  
   if (HospitalsLayer) overlayMaps["Hospitals"] = HospitalsLayer;
 
   layerControl = L.control.layers(null, overlayMaps, {
